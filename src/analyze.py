@@ -1,6 +1,18 @@
 '''
 Xinru Yan
 July 2020
+
+Inputs:
+    review: a csv file contains amazon review. Must have the following columns: Text, Published, Brand.
+            published column must contain a string looks like this: 2014-12-16 00:00:00
+    aspect: a string represents the aspect to analyze (e.g Smell).
+    key: a txt file contains key words of a specific aspect.
+         one key word per line
+    year: a string represents the splitting year (e.g. 2014, the program only focuses on data published >= 2014)
+    colormap: a txt file contains a list of colors that will be matched to brands for analysis.
+              one color per line.
+              number of brands should equal to number of colors in the file.
+    output_dir: dir name for outputs
 '''
 import nltk
 import os
