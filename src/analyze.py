@@ -13,6 +13,12 @@ Inputs:
               one color per line.
               number of brands should equal to number of colors in the file.
     output_dir: dir name for outputs
+
+Outputs:
+    a series of graphs in graphs/{aspect} dir
+
+Example commind line:
+python analyze.py -r ../data/sample_data.csv -s Smell -k ../data/keywords.txt -y 2014 -c ../data/colormap.txt -o ../graphs/
 '''
 import nltk
 import os
