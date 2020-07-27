@@ -17,7 +17,7 @@ $ pip install -r requirements.txt
 * colormap.txt
   - A txt file contains a list of colors that will be matched to brands for analysis.
   - One color per line.
-  - Number of brands should equal to number of colors in the file.
+  - Number of brands in the csv file should equal to number of colors in this file.
 ### src
 analyze.py
 ### graphs
