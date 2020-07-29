@@ -39,7 +39,7 @@ warnings.simplefilter("ignore")
 
 def set_palette(df: pd.DataFrame, colors: List) -> Dict:
     brands = list(set(df['Brand'].tolist()))
-    assert len(brands) == len(colors), f'There are {len(brands)} brands and {len(colors)}, please edit the colormap.txt file so the numbers match.'
+    assert len(brands) == len(colors), f'There are {len(brands)} brands and {len(colors)} colors, please edit the colormap.txt file so the numbers match.'
     palette = dict(zip(brands, colors))
     return palette
 
@@ -89,7 +89,10 @@ def aspect_percentage_per_brand(df_1, df_2, aspect: str) -> pd.DataFrame:
     i = 0
     for name, group in df_1:
         percentage_df.at[i, 'Brand'] = name
-        percentage_df.at[i, f'{aspect}_Percentage'] = group.shape[0] / (group.shape[0] + df_2.get_group(name).shape[0])
+        if name in df_2.groups.keys():
+            percentage_df.at[i, f'{aspect}_Percentage'] = group.shape[0] / (group.shape[0] + df_2.get_group(name).shape[0])
+        else:
+            percentage_df.at[i, f'{aspect}_Percentage'] = group.shape[0] / group.shape[0]
         i += 1
     return percentage_df
 
@@ -109,7 +112,10 @@ def calculate_overall_aspect_review_percentage(df:pd.DataFrame, aspect: str):
     for year, group in groupby_years:
         group_1 = group.loc[group[aspect] == 1]
         group_2 = group.loc[group[aspect] == 0]
-        percentage = group_1.shape[0] / group_2.shape[0]
+        if group_2.shape[0] != 0:
+            percentage = group_1.shape[0] / group_2.shape[0]
+        else:
+            percentage = group_1.shape[0] / group_1.shape[0]
         overall_percentage.at[i, 'Published_Year'] = year
         overall_percentage.at[i, f'{aspect}_Percentage'] = percentage
         i += 1
@@ -267,11 +273,11 @@ def create_percentage_df(df1, df2, df3):
     for index, row in df1.iterrows():
         year = row['Published_Year']
         brand = row['Brand']
-        if df2.loc[(df2['Brand'] == brand) & (df2['Published_Year'] == year)]['Counts'].empty:
+        if len(df2) == 0 or df2.loc[(df2['Brand'] == brand) & (df2['Published_Year'] == year)]['Counts'].empty:
             count2 = 0
         else:
             count2 = df2.loc[(df2['Brand'] == brand) & (df2['Published_Year'] == year)]['Counts'].tolist()[0]
-        if df3.loc[(df3['Brand'] == brand) & (df3['Published_Year'] == year)]['Counts'].empty:
+        if len(df3) == 0 or df3.loc[(df3['Brand'] == brand) & (df3['Published_Year'] == year)]['Counts'].empty:
             count3 = 0
         else:
             count3 = df3.loc[(df3['Brand'] == brand) & (df3['Published_Year'] == year)]['Counts'].tolist()[0]
@@ -309,30 +315,29 @@ def main(review, aspect, key, year, colormap, output_dir):
 
     aspect_data, non_aspect_data = split_data(new_review, aspect)
 
-    #brand aspect review percentage
+    print('#######Brand aspect review percentage analysis#######')
     asepct_groupped_data, non_aspect_groupped_data = group_split_data_by_brand(aspect_data, non_aspect_data)
     percentage_df = aspect_percentage_per_brand(asepct_groupped_data, non_aspect_groupped_data, aspect)
     plot_percentage(percentage_df, aspect, output_dir)
 
-    #overall percentage trend
+    print('#######Overall percentage trend analysis#######')
     overall_percentage = calculate_overall_aspect_review_percentage(new_review, aspect)
     plot_overall_percentage_trend(overall_percentage, aspect, output_dir)
 
-    #brand percentage trend
+    print('#######Brand percentage trend analysis#######')
     yearly_percentage_per_brand = calculate_yearly_percentage_per_brand(new_review, aspect)
     plot_brand_percentage_trend(yearly_percentage_per_brand, palette=palette, aspect=aspect, output_dir=output_dir)
 
-    #brand num of reviews trend bar
+    print('#######Brand num of reviews trend analysis#######')
     plot_num_of_reviews_per_brand(aspect_data, output_dir)
 
-    #corse grained sentiment analysis
+    print('#######Corse grained sentiment analysis#######')
     keyword_sents_df = extract_keyword_sents(df=aspect_data, keywords=keywords, col_name=f'{aspect}_Sents')
     sa_score_df = df_sa(keyword_sents_df, f'{aspect}_Sents', f'{aspect}_SA_Mean_Score', f'{aspect}_SA_Std_Score', f'{aspect}_SA_NumSents')
     score_df = calculate_year_mean(sa_score_df, aspect)
     plot_average_sentiment(score_df, output_dir)
 
-
-    #fine grained sentiment analysis
+    print('#######Fine grained sentiment analysis#######')
     new_sents_df = splitDataFrameList(keyword_sents_df, f'{aspect}_Sents').drop(
         columns=[f'{aspect}_SA_Mean_Score', f'{aspect}_SA_Std_Score', f'{aspect}_SA_NumSents'])
     all_sents = sents_sa(new_sents_df, aspect)
@@ -341,13 +346,18 @@ def main(review, aspect, key, year, colormap, output_dir):
     neg = creat_counts_df(all_sents, -1)
     neu = creat_counts_df(all_sents, 0)
 
-    pos_percent = create_percentage_df(pos, neg, neu)
-    neg_percent = create_percentage_df(neg, pos, neu)
-    neu_percent = create_percentage_df(neu, neg, pos)
-
-    plot_fine_grained_sentiment(pos_percent, palette=palette, aspect=aspect, polarity='Pos', out_dir=output_dir)
-    plot_fine_grained_sentiment(neu_percent, palette=palette, aspect=aspect, polarity='Neu', out_dir=output_dir)
-    plot_fine_grained_sentiment(neg_percent, palette=palette, aspect=aspect, polarity='Neg', out_dir=output_dir)
+    if len(pos) > 0:
+        print('########Generating pos figure########')
+        pos_percent = create_percentage_df(pos, neg, neu)
+        plot_fine_grained_sentiment(pos_percent, palette=palette, aspect=aspect, polarity='Pos', out_dir=output_dir)
+    if len(neg) > 0:
+        print('########Generating neg figure########')
+        neg_percent = create_percentage_df(neg, pos, neu)
+        plot_fine_grained_sentiment(neg_percent, palette=palette, aspect=aspect, polarity='Neu', out_dir=output_dir)
+    if len(neu) > 0:
+        print('########Generating neu figure########')
+        neu_percent = create_percentage_df(neu, neg, pos)
+        plot_fine_grained_sentiment(neu_percent, palette=palette, aspect=aspect, polarity='Neg', out_dir=output_dir)
 
 
 if __name__ == '__main__':
